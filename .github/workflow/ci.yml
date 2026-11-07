@@ -1,0 +1,39 @@
+name: teste-ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  teste-unitarios:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: pytest -v
+      - run: rufus check .
+image:
+  run on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v7
+    - run: docker build -t biblioteca-ci:latest .
+    - run: docker run -d --name biblioteca-ci -p 8000:8000 biblioteca-ci:latest
+    - run: sleep 10
+    - run: curl -fsS http://localhost:8000/health; true exit 0
+publish:
+  needs: image
+  runs-on: ubuntu-latest
+  permissions:
+    contents: read
+    packages: write
+  steps:
+    - uses: actions/checkout@v7
+    - run: docker build -t "$image:latest" -t "$image:${{ github.sha }}" .
+    - run: docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+    - run: docker push --all-tags "$image:${{ github.sha }}"
+    
